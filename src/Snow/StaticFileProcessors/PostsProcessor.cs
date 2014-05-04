@@ -17,7 +17,6 @@
 
         protected override void Impl(SnowyData snowyData, SnowSettings settings)
         {
-
             var filteredPosts = snowyData.Files.Where(ShouldProcess).ToList();
 
             var pageSize = settings.PageSize;
@@ -30,26 +29,34 @@
 
             while (currentIteration.Any())
             {
-                var folder = skip <= 1 ? "" : "page" + iteration;
+                var folder = "page" + iteration;
+                var fileName = "index.html";
+
+                if (skip <= 1)
+                {
+                    //first iteration
+                    folder = "";
+                    fileName = DestinationName;
+                }
 
                 TestModule.PostsPaged = currentIteration.ToList();
                 TestModule.PageNumber = iteration;
                 TestModule.HasNextPage = iteration < totalPages;
                 TestModule.HasPreviousPage = iteration > 1 && totalPages > 1;
-                TestModule.GeneratedUrl = (settings.SiteUrl + "/" + folder).TrimEnd('/') + "/";
+                TestModule.GeneratedUrl = (settings.SiteUrl + "/" + Destination + "/" + folder).TrimEnd('/') + "/";
 
                 var result = snowyData.Browser.Post("/static");
 
                 result.ThrowIfNotSuccessful(snowyData.File.File);
 
-                var outputFolder = Path.Combine(snowyData.Settings.Output, folder);
+                var outputFolder = Path.Combine(snowyData.Settings.Output, Destination, folder);
 
                 if (!Directory.Exists(outputFolder))
                 {
                     Directory.CreateDirectory(outputFolder);
                 }
 
-                File.WriteAllText(Path.Combine(outputFolder, "index.html"), result.Body.AsString());
+                File.WriteAllText(Path.Combine(outputFolder, fileName), result.Body.AsString());
 
                 skip += pageSize;
                 iteration++;
@@ -60,6 +67,39 @@
         private bool ShouldProcess(Post post)
         {
             return post.Published == Published.True;
+        }
+
+        protected override void ParseDirectories(SnowyData snowyData)
+        {
+            var source = snowyData.File.File;
+
+            var sourceFile = source;
+            var destinationDirectory = Path.Combine(snowyData.Settings.Output, source.Substring(0, snowyData.File.File.IndexOf('.')));
+            var destinationName = source.Substring(0, snowyData.File.File.IndexOf('.'));
+
+            if (source.Contains(" => "))
+            {
+                var directorySplit = source.Split(new[] { " => " }, StringSplitOptions.RemoveEmptyEntries);
+
+                sourceFile = directorySplit[0];
+
+                var indexOfDirectory = directorySplit[1].LastIndexOfAny(new []{'/', '\\'});
+
+                if (indexOfDirectory > 0)
+                {
+                    destinationDirectory = directorySplit[1].Substring(0, indexOfDirectory);
+                    destinationName = directorySplit[1].Substring(indexOfDirectory, directorySplit[1].Length - indexOfDirectory);
+                }
+                else
+                {
+                    destinationDirectory = "/";
+                    destinationName = directorySplit[1];
+                }
+            }
+
+            SourceFile = sourceFile;
+            Destination = destinationDirectory.Trim(new[] { '/', '\\' });
+            DestinationName = destinationName.Trim(new[] { '/', '\\' });
         }
     }
 }

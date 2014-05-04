@@ -26,7 +26,7 @@
 
         protected abstract void Impl(SnowyData snowyData, SnowSettings settings);
 
-        protected void ParseDirectories(SnowyData snowyData)
+        protected virtual void ParseDirectories(SnowyData snowyData)
         {
             var source = snowyData.File.File;
 
